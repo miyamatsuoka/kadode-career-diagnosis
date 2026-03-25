@@ -651,18 +651,43 @@ function getActions(total){
   return ["KADODE Careerに相談して転職活動の戦略を立てる","今週中に職務経歴書の下書きを作り始める","メンタルへの影響が大きい場合は環境変化を最優先に"];
 }
 
-async function generateAIComment(total,catScores,type){
+function generateAIComment(total, catScores, type){
   const avg={};
-  CATEGORIES.forEach(c=>{ const s=catScores[c]; avg[c]=s.count?(s.total/s.count).toFixed(1):0; });
-  const prompt=`あなたはKADODE Careerのプロキャリアコーチです。以下の診断結果を持つユーザーに、温かく寄り添いながらも本質を突いたメッセージを日本語で200〜260文字で書いてください。\n\n【診断スコア】${total}/75点（${type}）\n【カテゴリ別平均】\n${CATEGORIES.map(c=>`・${c}: ${avg[c]}/5`).join('\n')}\n\nルール：\n- ユーザーを責めず前向きな言葉で書く\n- スコアの特徴（低いカテゴリや高いカテゴリ）に具体的に触れる\n- 「あなた」と呼びかける\n- 最後はKADODE Careerへの無料相談を自然に促す\n- 記号・箇条書き不使用、自然な文章で`;
-  try {
-    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})});
-    const data=await res.json();
-    const text=data.content?.map(b=>b.text||'').join('')||'';
-    document.getElementById('ai-comment').innerHTML=`<p style="font-size:14px;line-height:2;color:var(--text-mid)">${text.trim().replace(/\n/g,'<br>')}</p>`;
-  } catch {
-    document.getElementById('ai-comment').innerHTML=`<p style="font-size:14px;line-height:2;color:var(--text-mid)">あなたの回答を丁寧に受け取りました。今感じているモヤモヤや迷いは、キャリアを真剣に考えているからこそ生まれるものです。一人で抱え込まず、KADODE Careerに気軽にご相談ください。</p>`;
+  CATEGORIES.forEach(c=>{ const s=catScores[c]; avg[c]=s.count?(s.total/s.count):0; });
+
+  // 最も低いカテゴリを特定
+  let lowestCat = CATEGORIES[0], lowestVal = 99;
+  CATEGORIES.forEach(c=>{ if(avg[c] < lowestVal){ lowestVal=avg[c]; lowestCat=c; } });
+
+  let message = '';
+
+  if(total >= 55){
+    // 今は様子見タイプ
+    const messages = [
+      `今のあなたのキャリアは、全体的に安定した状態にあります。成長の実感があり、職場環境にも恵まれている今は、焦って動くよりも現在の強みをさらに深める時期かもしれません。ただ、キャリアは常に変化するもの。定期的に自分の状況を見直す習慣をつけておくと、いざというときに迷わずに動けます。KADODE Careerでは、今の状態をさらに伸ばすためのキャリア相談も無料で承っています。`,
+      `診断結果を見ると、あなたは今の環境でしっかりと力を発揮できている様子が伝わってきます。スキルの積み上げやメンタルの安定感は、長期的なキャリア形成においてとても大切な財産です。「このままでいいのか」と感じる瞬間があっても、それは成長しているからこそ生まれる問いかけです。次のステージについて整理したくなったら、KADODE Careerにお気軽にご相談ください。`,
+      `全体的に満足度が高く、今の環境をポジティブに捉えられているあなたは、キャリアの土台がしっかりしています。焦って動く必要はありませんが、将来のビジョンを早めに描いておくことで、チャンスが来たときに迷わず動けます。KADODE Careerでは、今すぐ転職を考えていない方のキャリア相談も大歓迎です。ぜひ気軽にお話しましょう。`
+    ];
+    message = messages[total % messages.length];
+  } else if(total >= 36){
+    // 準備を始めるべきタイプ
+    const messages = [
+      `今のあなたのキャリアには、満足している部分と、少しモヤモヤしている部分が混在しているようです。特に「${lowestCat}」の面で課題を感じているかもしれません。この段階でしっかりと自分のキャリアを整理しておくことが、後悔のない選択につながります。まずはKADODE Careerの無料相談で、今の気持ちや状況を一緒に整理してみませんか？`,
+      `診断結果を見ると、今のあなたはキャリアの転換点に差し掛かっている可能性があります。「${lowestCat}」のスコアが気になりますが、これはあなたがより良い環境を求めているサインかもしれません。転職するかどうかを決める前に、まず自分の強みと理想を整理することが大切です。KADODE Careerの無料相談で、一緒に考えてみましょう。`,
+      `今のあなたには、キャリアについて真剣に向き合うタイミングが来ています。すべてがうまくいっているわけではないけれど、かといって今すぐ動くべきかも迷っている——そんな状態ではないでしょうか。焦らず、でも立ち止まりすぎず、まずは現状を整理することが第一歩です。KADODE Careerの無料相談で、あなたのペースでお話しましょう。`
+    ];
+    message = messages[total % messages.length];
+  } else {
+    // 今すぐ動くべきタイプ
+    const messages = [
+      `診断結果を見ると、今のあなたの環境はかなり負荷がかかっている状態です。特に「${lowestCat}」の面で大きなストレスを抱えている可能性があります。このまま我慢し続けることは、心身にとってもキャリアにとってもリスクになります。一人で抱え込まず、まずはKADODE Careerに相談してください。あなたの状況に合った次の一手を、一緒に考えます。`,
+      `スコアを見ると、今の環境があなたに合っていない可能性が高い状態です。「${lowestCat}」をはじめ、複数の面で課題を感じているのではないでしょうか。変化には勇気が要りますが、動き出すことで状況は必ず変わります。KADODE Careerでは、あなたのペースに合わせてキャリアの戦略を一緒に立てることができます。まずは無料相談から始めましょう。`,
+      `今のあなたにとって、現状維持は最もリスクの高い選択かもしれません。「${lowestCat}」のスコアが示すように、今の環境ではあなたの力が十分に発揮できていない可能性があります。行動することへの不安は当然ですが、まず相談するだけでも気持ちが整理されます。KADODE Careerの無料相談で、あなたの理想のキャリアに向けた第一歩を踏み出しましょう。`
+    ];
+    message = messages[total % messages.length];
   }
+
+  document.getElementById('ai-comment').innerHTML = `<p style="font-size:14px;line-height:2;color:var(--text-mid)">${message}</p>`;
 }
 
 function retryQuiz(){
